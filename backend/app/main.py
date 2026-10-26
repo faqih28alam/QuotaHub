@@ -1,9 +1,12 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.core.config import settings
-from app.core.database import connect_to_mongo, close_mongo_connection
+from app.core.database import connect_to_mongo, close_mongo_connection, db_instance
 from app.routers import auth, projects, keys
+
+_docs_enabled = settings.ENVIRONMENT.strip().lower() != "production"
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -17,13 +20,16 @@ app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
     description="Encrypted API Quota & Balance Monitoring Engine for TikHub, OpenAI, 2Captcha, and custom endpoints.",
-    lifespan=lifespan
+    lifespan=lifespan,
+    docs_url="/docs" if _docs_enabled else None,
+    redoc_url="/redoc" if _docs_enabled else None,
+    openapi_url="/openapi.json" if _docs_enabled else None,
 )
 
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=settings.cors_origin_list(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -36,6 +42,10 @@ app.include_router(keys.router, prefix=settings.API_V1_STR)
 
 @app.get("/health", tags=["Health"])
 async def health_check():
+    try:
+        await db_instance.client.admin.command("ping")
+    except Exception:
+        raise HTTPException(status_code=503, detail="Database unavailable")
     return {
         "status": "healthy",
         "app": settings.PROJECT_NAME,
@@ -44,8 +54,8 @@ async def health_check():
 
 @app.get("/", tags=["Root"])
 async def root():
-    return {
-        "message": f"Welcome to {settings.PROJECT_NAME}",
-        "docs": "/docs",
-        "openapi": "/openapi.json"
-    }
+    payload = {"message": f"Welcome to {settings.PROJECT_NAME}"}
+    if _docs_enabled:
+        payload["docs"] = "/docs"
+        payload["openapi"] = "/openapi.json"
+    return payload

@@ -1,7 +1,8 @@
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, Request, status, Depends
 from app.models.user import LoginRequest, RegisterRequest, AuthResponse, UserResponse
 from app.core.config import settings
 from app.core.database import get_database
+from app.core.rate_limit import enforce_login_rate_limit
 from app.core.security import create_access_token
 from passlib.context import CryptContext
 from datetime import datetime
@@ -38,9 +39,15 @@ async def _ensure_default_user(db):
     return doc
 
 
+@router.get("/config")
+async def auth_config():
+    return {"allowSignup": settings.ALLOW_SIGNUP}
+
+
 @router.post("/login", response_model=AuthResponse)
-async def login(creds: LoginRequest, db=Depends(get_database)):
+async def login(creds: LoginRequest, request: Request, db=Depends(get_database)):
     clean_user = creds.username.strip().lower()
+    enforce_login_rate_limit(request, clean_user)
 
     if clean_user == settings.DEFAULT_USERNAME and creds.password == settings.DEFAULT_PASSWORD:
         user_doc = await _ensure_default_user(db)
@@ -67,8 +74,11 @@ async def login(creds: LoginRequest, db=Depends(get_database)):
 
 
 @router.post("/register", response_model=AuthResponse)
-async def register(creds: RegisterRequest, db=Depends(get_database)):
+async def register(creds: RegisterRequest, request: Request, db=Depends(get_database)):
     clean_user = creds.username.strip().lower()
+    enforce_login_rate_limit(request, clean_user)
+    if not settings.ALLOW_SIGNUP:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Sign up is disabled")
     if len(clean_user) < 3 or len(creds.password) < 6:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

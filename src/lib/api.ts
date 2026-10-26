@@ -134,6 +134,10 @@ function toSession(payload: AuthPayload): AuthUser {
 }
 
 export const QuotaApi = {
+  authConfig(): Promise<{ allowSignup: boolean }> {
+    return request<{ allowSignup: boolean }>('/auth/config', { method: 'GET' }, false);
+  },
+
   login(username: string, password: string): Promise<AuthUser> {
     return request<AuthPayload>('/auth/login', {
       method: 'POST',

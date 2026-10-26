@@ -45,6 +45,9 @@ __pycache__/
 # vercel
 .vercel
 
+# database dumps
+/backups/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

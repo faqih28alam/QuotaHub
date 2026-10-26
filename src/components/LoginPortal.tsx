@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Activity, 
   LogIn, 
@@ -44,12 +44,40 @@ export function LoginPortal({
   const [signupConfirmPassword, setSignupConfirmPassword] = useState('');
   const [showSignupPassword, setShowSignupPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [allowSignup, setAllowSignup] = useState(true);
 
   const t = TRANSLATIONS[language];
+
+  useEffect(() => {
+    let cancelled = false;
+    QuotaApi.authConfig()
+      .then((config) => {
+        if (!cancelled) setAllowSignup(config.allowSignup);
+      })
+      .catch(() => {
+        // Guest mode still works when the API is down. Keep the sign-up tab.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!allowSignup && activeTab === 'signup') {
+      setActiveTab('signin');
+    }
+  }, [allowSignup, activeTab]);
 
   const unreachableMessage = language === 'id'
     ? 'Server API tidak dapat dihubungi. Jalankan backend di port 8000, atau gunakan Mode Tamu.'
     : 'API server is unreachable. Start the backend on port 8000, or use Guest mode.';
+
+  const authErrorMessage = (err: unknown, fallback: string) => {
+    if (err instanceof ApiError && err.status === 0) return unreachableMessage;
+    if (err instanceof ApiError && err.status === 403) return t.authSignupDisabled;
+    if (err instanceof ApiError && err.status === 429) return t.authRateLimited;
+    return err instanceof Error ? err.message : fallback;
+  };
 
   // Sign In Handler
   const handleSignIn = async (e: React.FormEvent) => {
@@ -62,11 +90,7 @@ export function LoginPortal({
       ClientStorage.setAuthUser(user);
       onLoginSuccess(user);
     } catch (err: unknown) {
-      if (err instanceof ApiError && err.status === 0) {
-        setErrorMsg(unreachableMessage);
-      } else {
-        setErrorMsg(err instanceof Error ? err.message : t.authInvalidCreds);
-      }
+      setErrorMsg(authErrorMessage(err, t.authInvalidCreds));
     } finally {
       setIsSubmitting(false);
     }
@@ -97,11 +121,7 @@ export function LoginPortal({
       ClientStorage.setAuthUser(user);
       onLoginSuccess(user);
     } catch (err: unknown) {
-      if (err instanceof ApiError && err.status === 0) {
-        setErrorMsg(unreachableMessage);
-      } else {
-        setErrorMsg(err instanceof Error ? err.message : t.authFillAllFields);
-      }
+      setErrorMsg(authErrorMessage(err, t.authFillAllFields));
     } finally {
       setIsSubmitting(false);
     }
@@ -165,7 +185,7 @@ export function LoginPortal({
         </div>
 
         {/* Tabs: Sign In / Sign Up / Guest Mode */}
-        <div className="grid grid-cols-3 gap-1 rounded-xl border border-white/10 bg-black/40 p-1 mb-6 text-xs font-semibold">
+        <div className={`grid ${allowSignup ? 'grid-cols-3' : 'grid-cols-2'} gap-1 rounded-xl border border-white/10 bg-black/40 p-1 mb-6 text-xs font-semibold`}>
           <button
             type="button"
             onClick={() => { setActiveTab('signin'); setErrorMsg(null); }}
@@ -178,18 +198,20 @@ export function LoginPortal({
             <LogIn className="h-3.5 w-3.5" />
             <span>{t.authSignInTab}</span>
           </button>
-          <button
-            type="button"
-            onClick={() => { setActiveTab('signup'); setErrorMsg(null); }}
-            className={`flex items-center justify-center gap-1.5 rounded-lg py-2 transition-all ${
-              activeTab === 'signup'
-                ? 'bg-cyan-500/20 text-cyan-300 shadow-sm border border-cyan-500/30'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <UserPlus className="h-3.5 w-3.5" />
-            <span>{t.authSignUpTab}</span>
-          </button>
+          {allowSignup && (
+            <button
+              type="button"
+              onClick={() => { setActiveTab('signup'); setErrorMsg(null); }}
+              className={`flex items-center justify-center gap-1.5 rounded-lg py-2 transition-all ${
+                activeTab === 'signup'
+                  ? 'bg-cyan-500/20 text-cyan-300 shadow-sm border border-cyan-500/30'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <UserPlus className="h-3.5 w-3.5" />
+              <span>{t.authSignUpTab}</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={() => { setActiveTab('guest'); setErrorMsg(null); }}

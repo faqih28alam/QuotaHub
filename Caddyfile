@@ -1,0 +1,5 @@
+# HTTPS for the API subdomain. API_DOMAIN comes from the root .env via Compose.
+{$API_DOMAIN} {
+	encode gzip
+	reverse_proxy backend:8000
+}

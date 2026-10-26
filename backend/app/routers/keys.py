@@ -106,7 +106,7 @@ async def add_api_key(payload: ApiKeyCreate, db=Depends(get_database), user=Depe
         initial_balance = verif.get("balance", initial_balance)
         status_label = verif.get("status", "healthy")
     except Exception as exc:
-        print(f"Initial ping note: {exc}")
+        print(f"Initial provider check failed: {type(exc).__name__}")
 
     now = datetime.utcnow()
     doc = {

@@ -32,8 +32,10 @@ QuotaHub/
 │   │   └── services/       # Outbound async checkers (TikHub, 2Captcha, OpenAI)
 │   ├── Dockerfile
 │   └── requirements.txt
-├── docker-compose.yml       # Orkestrasi multi-kontainer (Mongo + FastAPI + Next.js)
+├── docker-compose.yml       # Lokal: Mongo + FastAPI + Next.js
+├── docker-compose.prod.yml  # Server: Mongo + FastAPI + Caddy (HTTPS)
 ├── Dockerfile               # Kontainer Next.js Production
+├── DEPLOY.md                # Deploy Vercel + server (Tencent)
 └── README.md
 ```
 
@@ -48,8 +50,8 @@ QuotaHub/
 
 Salin `backend/.env.example` menjadi `backend/.env`, lalu isi nilai Anda sendiri. Jangan commit file `.env`.
 
-1. **Sign In (Masuk)**: gunakan `DEFAULT_USERNAME` dan `DEFAULT_PASSWORD` dari `.env`.
-2. **Sign Up (Daftar Akun Baru)**: pendaftaran akun baru yang tersimpan di database.
+1. **Sign In (Masuk)**: gunakan `DEFAULT_USERNAME` dan `DEFAULT_PASSWORD` dari `.env`. Proses backend menolak password kosong atau placeholder (`changeme`, `password`, `admin`, dan sejenisnya).
+2. **Sign Up (Daftar Akun Baru)**: pendaftaran akun baru yang tersimpan di database. Matikan di server publik dengan `ALLOW_SIGNUP=false`.
 3. **Guest Mode (Mode Tamu)**: akses 1-klik untuk menjelajahi dashboard dalam sandbox lokal. Mode ini tidak memakai API.
 
 ---
@@ -64,7 +66,7 @@ Salin `backend/.env.example` menjadi `backend/.env`, lalu isi nilai Anda sendiri
 ### 1. Jalankan MongoDB Lokal
 Jika menggunakan Docker untuk MongoDB saja:
 ```bash
-docker run -d --name quotahub-mongo -p 27017:27017 -v mongo_data:/data/db mongo:7.0
+docker run -d --name quotahub-mongo -p 127.0.0.1:27017:27017 -v mongo_data:/data/db mongo:7.0
 ```
 
 ### 2. Jalankan Backend (FastAPI)
@@ -104,7 +106,7 @@ npm run dev
 
 ## 🐳 Panduan Menjalankan: Docker Deployment
 
-Docker Compose adalah cara tercepat untuk menjalankan seluruh ekosistem QuotaHub (MongoDB, FastAPI, dan Next.js) dalam 1 perintah.
+Docker Compose adalah cara tercepat untuk menjalankan seluruh ekosistem QuotaHub (MongoDB, FastAPI, dan Next.js) dalam 1 perintah di mesin lokal. Deploy ke server (Vercel + HTTPS) ada di [DEPLOY.md](DEPLOY.md).
 
 ### 1. Menjalankan Semua Layanan
 Di root direktori proyek, jalankan:
@@ -124,10 +126,11 @@ docker compose ps
 Output yang sehat:
 ```text
 NAME                 IMAGE               STATUS         PORTS
-quotahub-mongo       mongo:7.0           Up (healthy)   0.0.0.0:27017->27017/tcp
+quotahub-mongo       mongo:7.0           Up (healthy)   127.0.0.1:27017->27017/tcp
 quotahub-backend     quotahub-backend    Up             0.0.0.0:8000->8000/tcp
 quotahub-frontend    quotahub-frontend   Up             0.0.0.0:3000->3000/tcp
 ```
+Port Mongo hanya terikat ke `127.0.0.1`, jadi tidak terbuka ke internet. Autentikasi Mongo dan HTTPS dipakai di deploy server, lihat [DEPLOY.md](DEPLOY.md).
 
 ### 3. Memantau Log
 ```bash
@@ -170,21 +173,24 @@ docker compose up -d --build
 
 ## 💾 Backup & Restore Database MongoDB
 
-### 1. Backup Database (Dump)
-Jalankan perintah ini untuk mengekspor seluruh koleksi ke folder backup:
-```bash
-# Backup langsung dari container Docker
-docker exec -t quotahub-mongo mongodump --db quotahub --out /data/db/backup_$(date +%Y%m%d)
+Dump ditulis ke `/tmp` di dalam container, lalu disalin ke `./backups/quotahub-YYYYMMDD` di host. Folder itu berisi subfolder `quotahub/`. Dump tidak disimpan di volume data Mongo.
 
-# Salin folder backup dari container ke host lokal
-docker cp quotahub-mongo:/data/db/backup_$(date +%Y%m%d) ./backups/
+### 1. Backup Database (Dump)
+Dari root repositori, dengan container `quotahub-mongo` sedang berjalan:
+```bash
+sh scripts/backup-mongo.sh
+```
+Hasilnya: `./backups/quotahub-YYYYMMDD/quotahub/`.
+
+Untuk menyalin keluar server (Tencent COS), pasang [coscli](https://www.tencentcloud.com/document/product/436/43263), lalu:
+```bash
+COS_BUCKET=nama-bucket sh scripts/backup-mongo.sh
 ```
 
 ### 2. Restore Database
-Untuk memulihkan data dari backup:
+Gunakan folder yang sama dengan hasil backup:
 ```bash
-docker cp ./backups/quotahub-backup quotahub-mongo:/data/db/restore_temp
-docker exec -it quotahub-mongo mongorestore --db quotahub /data/db/restore_temp/quotahub
+sh scripts/restore-mongo.sh ./backups/quotahub-YYYYMMDD
 ```
 
 ---
@@ -200,7 +206,7 @@ python -c "import os, base64; print(base64.b64encode(os.urandom(32)).decode())"
 APP_MASTER_ENCRYPTION_KEY=hasil_generate
 JWT_SECRET=string_acak_panjang
 ```
-Kehilangan `APP_MASTER_ENCRYPTION_KEY` membuat seluruh API key yang sudah tersimpan tidak bisa didekripsi. Jangan menaruh kunci ini di Git, README, atau `docker-compose.yml`.
+Kehilangan `APP_MASTER_ENCRYPTION_KEY` membuat seluruh API key yang sudah tersimpan tidak bisa didekripsi. Simpan salinannya di password manager, terpisah dari disk server. Jangan menaruh kunci ini di Git, README, log, atau `docker-compose.yml`.
 
 ### Mengapa Kunci API Aman di MongoDB?
 1. **Tidak Ada Plaintext di Database**: MongoDB hanya menyimpan string *Base64 ciphertext* dan *nonce*.
