@@ -131,7 +131,22 @@ Salin keluar server dengan cron. Contoh tiap hari pukul 03:00, setelah `coscli` 
 0 3 * * * cd /opt/quotahub && BACKUP_DIR=/var/backups/quotahub COS_BUCKET=nama-bucket sh scripts/backup-mongo.sh >> /var/log/quotahub-backup.log 2>&1
 ```
 
-## 8. Update
+## 8. Monitor URL
+
+Di dalam sebuah project, tambah monitor dengan URL health. Server API memeriksanya sekitar sekali semenit. Hasilnya tampil di dashboard. Browser tidak memanggil service itu langsung.
+
+Pilih jalur **Publik** untuk URL yang bisa dijangkau dari server. Pilih **Tailscale** untuk IP `100.x` atau nama `.ts.net`. Pemeriksaan Tailscale memakai SOCKS proxy. Kalau proxy tidak jalan, baris itu berstatus mati.
+
+Jalankan proxy-nya bersama stack produksi:
+
+```bash
+# Isi TS_AUTHKEY di .env root, lalu:
+docker compose -f docker-compose.prod.yml --profile tailscale up -d
+```
+
+`TAILSCALE_SOCKS_PROXY` di Compose sudah mengarah ke `socks5h://tailscale:1055`. Port proxy tidak dibuka ke internet.
+
+## 9. Update
 
 ```bash
 git pull origin main
@@ -140,6 +155,6 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 Volume `mongo_data` tidak ikut terhapus. `docker compose down -v` menghapus database.
 
-## 9. Log
+## 10. Log
 
 API key tidak ditulis ke log. Kegagalan cek provider hanya mencatat nama tipe exception, bukan URL atau isi error (URL 2Captcha memuat key). Connection string Mongo juga tidak dicatat.

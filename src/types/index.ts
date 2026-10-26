@@ -85,6 +85,24 @@ export interface AppSettings {
   defaultView: 'grid' | 'table';
 }
 
+export type MonitorRoute = 'public' | 'tailscale';
+export type MonitorStatus = 'up' | 'down' | 'unknown';
+
+export interface ServiceMonitor {
+  id: string;
+  projectId: string;
+  name: string;
+  url: string;
+  route: MonitorRoute;
+  expectedStatus: number;
+  timeoutSeconds: number;
+  status: MonitorStatus;
+  statusCode?: number | null;
+  latencyMs?: number | null;
+  error?: string | null;
+  lastChecked?: string | null;
+}
+
 export interface SystemStats {
   totalBalance: number;
   activeCount: number;

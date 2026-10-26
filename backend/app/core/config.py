@@ -45,6 +45,10 @@ class Settings(BaseSettings):
     # Public registration. Turn this off on any server that stores real API keys.
     ALLOW_SIGNUP: bool = True
 
+    # URL monitors. Tailscale targets use this SOCKS proxy (socks5h:// so names resolve on the tailnet).
+    MONITOR_CHECK_INTERVAL_SECONDS: int = 60
+    TAILSCALE_SOCKS_PROXY: str = ""
+
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
 

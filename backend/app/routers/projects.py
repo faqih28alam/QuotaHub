@@ -79,3 +79,4 @@ async def delete_project(project_id: str, db=Depends(get_database), user=Depends
     if deleted.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Project not found")
     await db["api_keys"].delete_many({"project_id": project_id, "user_id": user["id"]})
+    await db["monitors"].delete_many({"project_id": project_id, "user_id": user["id"]})

@@ -11,6 +11,7 @@ import { FilterBar } from '@/components/FilterBar';
 import { ProviderCard } from '@/components/ProviderCard';
 import { ProviderTable } from '@/components/ProviderTable';
 import { AddKeyModal } from '@/components/AddKeyModal';
+import { ServiceMonitors } from '@/components/ServiceMonitors';
 import { SettingsModal } from '@/components/SettingsModal';
 import { Toast } from '@/components/Toast';
 import { ApiKeyItem, Project, SystemStats, Language, AuthUser, KeyDraft } from '@/types';
@@ -567,6 +568,14 @@ export default function DashboardPage() {
                 language={language}
               />
             )}
+
+            <ServiceMonitors
+              key={activeProject.id}
+              projectId={activeProject.id}
+              language={language}
+              enabled={isServerSession}
+              onNotice={showToast}
+            />
           </div>
         )}
       </main>

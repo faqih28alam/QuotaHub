@@ -34,6 +34,7 @@ services:
       ALLOW_SIGNUP: "false"
       MONGO_DB_NAME: quotahub
       MONGO_URI: mongodb://${MONGO_ROOT_USERNAME}:${MONGO_ROOT_PASSWORD}@mongo:27017/quotahub?authSource=admin
+      TAILSCALE_SOCKS_PROXY: ${TAILSCALE_SOCKS_PROXY:-socks5h://tailscale:1055}
     depends_on:
       mongo:
         condition: service_healthy
@@ -47,6 +48,22 @@ services:
       - --proxy-headers
       - --forwarded-allow-ips
       - "*"
+    networks:
+      - quotahub-network
+
+  # Optional. Start with: docker compose -f docker-compose.prod.yml --profile tailscale up -d
+  tailscale:
+    image: tailscale/tailscale:stable
+    container_name: quotahub-tailscale
+    restart: unless-stopped
+    profiles: ["tailscale"]
+    environment:
+      TS_AUTHKEY: ${TS_AUTHKEY:-}
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_USERSPACE: "true"
+      TS_SOCKS5_SERVER: ":1055"
+    volumes:
+      - tailscale_state:/var/lib/tailscale
     networks:
       - quotahub-network
 
@@ -72,6 +89,7 @@ volumes:
   mongo_data:
   caddy_data:
   caddy_config:
+  tailscale_state:
 
 networks:
   quotahub-network:

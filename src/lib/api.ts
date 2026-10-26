@@ -1,4 +1,4 @@
-import { ApiKeyItem, AuthUser, KeyDraft, KeyStatus, Project, ProviderId } from '@/types';
+import { ApiKeyItem, AuthUser, KeyDraft, KeyStatus, MonitorRoute, Project, ProviderId, ServiceMonitor } from '@/types';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 const AUTH_USER_KEY = 'quotahub_auth_user_v2';
@@ -204,6 +204,30 @@ export const QuotaApi = {
 
   deleteKey(id: string): Promise<void> {
     return request<void>(`/keys/${id}`, { method: 'DELETE' });
+  },
+
+  listMonitors(projectId: string): Promise<ServiceMonitor[]> {
+    return request<ServiceMonitor[]>(`/monitors/?project_id=${encodeURIComponent(projectId)}`);
+  },
+
+  createMonitor(input: { projectId: string; name: string; url: string; route: MonitorRoute }): Promise<ServiceMonitor> {
+    return request<ServiceMonitor>('/monitors/', {
+      method: 'POST',
+      body: JSON.stringify({
+        project_id: input.projectId,
+        name: input.name,
+        url: input.url,
+        route: input.route,
+      }),
+    });
+  },
+
+  checkMonitor(id: string): Promise<ServiceMonitor> {
+    return request<ServiceMonitor>(`/monitors/${id}/check`, { method: 'POST' });
+  },
+
+  deleteMonitor(id: string): Promise<void> {
+    return request<void>(`/monitors/${id}`, { method: 'DELETE' });
   },
 
   testKey(draft: Pick<KeyDraft, 'providerId' | 'apiKey' | 'endpoint' | 'alertThreshold' | 'maxQuota'>): Promise<{

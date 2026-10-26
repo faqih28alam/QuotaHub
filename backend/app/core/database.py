@@ -17,6 +17,7 @@ async def connect_to_mongo():
     await db_instance.db["projects"].create_index([("user_id", 1), ("name", 1)])
     await db_instance.db["api_keys"].create_index([("project_id", 1)])
     await db_instance.db["api_keys"].create_index([("user_id", 1)])
+    await db_instance.db["monitors"].create_index([("user_id", 1), ("project_id", 1)])
     print(f"Connected to MongoDB (DB: {settings.MONGO_DB_NAME})")
 
 async def close_mongo_connection():
